@@ -28,6 +28,8 @@ import {
   isRemove,
   isUpdate,
   OpenEvent,
+  WizardRequest,
+  WizardRequestEvent,
 } from './foundation.js';
 
 export type LogEntry = { undo: Edit; redo: Edit };
@@ -38,6 +40,7 @@ export type Plugin = {
   src: string;
   icon: string;
   requireDoc?: boolean;
+  // TODO(ca-d): remove this property
   active?: boolean;
 };
 export type PluginSet = { menu: Plugin[]; editor: Plugin[] };
@@ -172,7 +175,16 @@ export class OpenSCD extends LitElement {
     this.requestUpdate();
   }
 
-  handleOpenDoc({ detail: { docName, doc } }: OpenEvent) {
+  @state()
+  workflow: WizardRequest[] = [];
+
+  handleWizardRequestEvent({ detail }: WizardRequestEvent) {
+    this.workflow = detail.subWizard
+      ? [detail, ...this.workflow]
+      : [...this.workflow, detail];
+  }
+
+  handleOpenEvent({ detail: { docName, doc } }: OpenEvent) {
     this.docName = docName;
     this.docs[this.docName] = doc;
   }
@@ -325,7 +337,7 @@ export class OpenSCD extends LitElement {
 
     document.addEventListener('keydown', event => this.handleKeyPress(event));
 
-    this.addEventListener('oscd-open', event => this.handleOpenDoc(event));
+    this.addEventListener('oscd-open', event => this.handleOpenEvent(event));
     this.addEventListener('oscd-edit', event => this.handleEditEvent(event));
   }
 

@@ -25,4 +25,16 @@ export type {
   Update,
 } from './foundation/edit-event.js';
 
+export {
+  isCreateRequest,
+  isEditRequest,
+  newWizardRequestEvent,
+} from './foundation/wizard-event.js';
+export type {
+  CreateRequest,
+  EditRequest,
+  WizardRequest,
+  WizardRequestEvent,
+} from './foundation/wizard-event.js';
+
 export { cyrb64 } from './foundation/cyrb64.js';
