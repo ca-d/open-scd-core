@@ -82,8 +82,14 @@ declare global {
 /** EDIT HANDLING */
 
 function uniqueNSPrefix(element: Element): string {
+  const attributes = Array.from(element.attributes);
   let i = 1;
-  while (element.lookupNamespaceURI(`ens${i}`)) i += 1;
+  const hasSamePrefix = (attribute: Attr) => attribute.prefix === `ens${i}`;
+  while (
+    element.lookupNamespaceURI(`ens${i}`) ||
+    attributes.find(hasSamePrefix)
+  )
+    i += 1;
   return `ens${i}`;
 }
 
@@ -185,7 +191,10 @@ function handleUpdateNS({
     Object.keys(attrs)
       .reverse()
       .forEach(name => {
-        oldAttributesNS[ns]![name] = element.getAttributeNS(ns, name);
+        oldAttributesNS[ns] = {
+          ...oldAttributesNS[ns],
+          [name]: element.getAttributeNS(ns, name),
+        };
       });
   });
   for (const nsEntry of Object.entries(attributesNS)) {
