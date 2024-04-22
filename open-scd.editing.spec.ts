@@ -31,6 +31,7 @@ import {
 import type { OpenSCD } from './open-scd.js';
 
 import './open-scd.js';
+import { UpdateNS } from './foundation/edit-event.js';
 
 export namespace util {
   export const xmlAttributeName =
@@ -115,6 +116,21 @@ export namespace util {
       oneof(stringArbitrary(), constant(null), namespacedValue)
     );
     return record({ element, attributes });
+  }
+
+  export function updateNS(nodes: Node[]): Arbitrary<UpdateNS> {
+    const element = <Arbitrary<Element>>(
+      constantFrom(...nodes.filter(nd => nd.nodeType === Node.ELEMENT_NODE))
+    );
+    const attributes = dictionary(
+      oneof(stringArbitrary(), constant('colliding-attribute-name')),
+      oneof(stringArbitrary(), constant(null))
+    );
+    const attributesNS = dictionary(
+      webUrl(),
+      dictionary(stringArbitrary(), oneof(stringArbitrary(), constant(null)))
+    );
+    return record({ element, attributes, attributesNS });
   }
 
   export function simpleEdit(
@@ -278,6 +294,31 @@ describe('Editing Element', () => {
     expect(sclDoc.querySelector('Substation')).to.not.exist;
   });
 
+  it('allows both non-namespaced and unique namespaced attributes to be added to an element', () => {
+    const element = sclDoc.querySelector('Substation')!;
+
+    editor.dispatchEvent(
+      newEditEvent({
+        element,
+        attributes: {
+          name: 'A2',
+          desc: null,
+          ['__proto__']: 'a string', // covers a rare edge case branch
+        },
+        attributesNS: {
+          'https://example.org/myNS': { attrName: 'attrValue' },
+          'https://example.org/myOtherNS': { attrName: 'someOtherAttrValue' },
+        },
+      })
+    );
+
+    expect(element).to.have.attribute('name', 'A2');
+    expect(element).to.not.have.attribute('desc');
+    expect(element).to.have.attribute('__proto__', 'a string');
+    expect(element).to.have.attribute('ens1:attrName', 'attrValue');
+    expect(element).to.have.attribute('ens2:attrName', 'someOtherAttrValue');
+  });
+
   describe('generally', () => {
     it('inserts elements on Insert edit events', () =>
       assert(
@@ -340,6 +381,36 @@ describe('Editing Element', () => {
           }
         )
       ));
+
+    it('allows both non-namespaced and unique namespaced attributes to be added to elements', () =>
+      assert(
+        property(
+          util.testDocs.chain(([{ nodes }]) => util.updateNS(nodes)),
+          edit => {
+            editor.dispatchEvent(newEditEvent(edit));
+            return (
+              Object.entries(edit.attributes)
+                .map(entry => entry as [string, string | null])
+                .every(
+                  ([name, value]) =>
+                    !util.xmlAttributeName.test(name) ||
+                    edit.element.getAttribute(name) === value
+                ) &&
+              Object.entries(edit.attributesNS)
+                .map(entry => entry as [string, Record<string, string | null>])
+                .every(([nsURI, attributes]) =>
+                  Object.entries(attributes)
+                    .map(entry => entry as [string, string | null])
+                    .every(
+                      ([name, value]) =>
+                        !util.xmlAttributeName.test(name) ||
+                        edit.element.getAttributeNS(nsURI, name) === value
+                    )
+                )
+            );
+          }
+        )
+      )).timeout(10000);
 
     it('removes elements on Remove edit events', () =>
       assert(
