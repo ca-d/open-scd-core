@@ -31,6 +31,7 @@ import {
 import type { OpenSCD } from './open-scd.js';
 
 import './open-scd.js';
+import { UpdateNS, Value } from './foundation/edit-event.js';
 
 export namespace util {
   export const xmlAttributeName =
@@ -43,7 +44,7 @@ export namespace util {
   }
 
   export const sclDocString = `<?xml version="1.0" encoding="UTF-8"?>
-<SCL version="2007" revision="B" xmlns="http://www.iec.ch/61850/2003/SCL">
+<SCL xmlns:foo="http://example.org/foo" xmlns:ens1="http://example.org/ens1" version="2007" revision="B" xmlns="http://www.iec.ch/61850/2003/SCL">
   <Substation name="A1" desc="test substation"></Substation>
 </SCL>`;
   const testDocStrings = [
@@ -115,6 +116,18 @@ export namespace util {
       oneof(stringArbitrary(), constant(null), namespacedValue)
     );
     return record({ element, attributes });
+  }
+
+  export function updateNS(nodes: Node[]): Arbitrary<UpdateNS> {
+    const element = <Arbitrary<Element>>(
+      constantFrom(...nodes.filter(nd => nd.nodeType === Node.ELEMENT_NODE))
+    );
+    const attributes = dictionary(
+      oneof(stringArbitrary(), constant('colliding-attribute-name')),
+      oneof(stringArbitrary(), constant(null))
+    );
+    const attributesNS = dictionary(webUrl(), attributes);
+    return record({ element, attributes, attributesNS });
   }
 
   export function simpleEdit(
@@ -242,6 +255,39 @@ describe('Editing Element', () => {
     expect(element).to.have.attribute('myns:attr', 'namespaced value');
   });
 
+  it("updates an element's namespaced attributes on Update", () => {
+    const element = sclDoc.querySelector('Substation')!;
+    editor.dispatchEvent(
+      newEditEvent({
+        element,
+        attributes: {},
+        attributesNS: {
+          // Use a globally defined namespace
+          // See <SCL> element
+          'http://example.org/foo': {
+            name: 'A1',
+          },
+          // Use a locally defined namespace
+          'http://example.org/bar': {
+            'bar:name': 'A2',
+          },
+          // Use auto namespace prefix generation
+          // ens1, ..., ensn
+          test: {
+            name: 'A3',
+          },
+          test2: {
+            name: 'A4',
+          },
+        },
+      })
+    );
+    expect(element).to.have.attribute('foo:name', 'A1');
+    expect(element).to.have.attribute('bar:name', 'A2');
+    expect(element).to.have.attribute('ens2:name', 'A3');
+    expect(element).to.have.attribute('ens3:name', 'A4');
+  });
+
   it('processes complex edits in the given order', () => {
     const parent = sclDoc.documentElement;
     const reference = sclDoc.querySelector('Substation');
@@ -339,6 +385,36 @@ describe('Editing Element', () => {
               );
           }
         )
+      ));
+
+    it('updates namespaced attributes on UpdateNS edit events', () =>
+      assert(
+        property(
+          util.testDocs.chain(([{ nodes }]) => util.updateNS(nodes)),
+          (edit: UpdateNS) => {
+            editor.dispatchEvent(newEditEvent(edit));
+            return Object.entries(edit.attributesNS)
+              .map(entry => entry as [string, Partial<Record<string, Value>>])
+              .every(([url, attributes]) =>
+                Object.entries(attributes).every(([key, value]) => {
+                  let localname = key;
+                  if (key.includes(':')) {
+                    localname = key.split(':', 2).pop() as string;
+                  }
+                  if (
+                    !localname ||
+                    !localname.trim() ||
+                    !value ||
+                    !value.trim() ||
+                    !util.xmlAttributeName.test(localname)
+                  )
+                    return true;
+                  return edit.element.getAttributeNS(url, localname) === value;
+                })
+              );
+          }
+        ),
+        { verbose: true }
       ));
 
     it('removes elements on Remove edit events', () =>
