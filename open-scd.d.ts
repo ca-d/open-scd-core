@@ -5,10 +5,17 @@ import '@material/mwc-drawer';
 import '@material/mwc-icon';
 import '@material/mwc-icon-button';
 import '@material/mwc-list';
+import '@material/mwc-menu';
+import '@material/mwc-select';
 import '@material/mwc-tab-bar';
+import '@material/mwc-textfield';
 import '@material/mwc-top-app-bar-fixed';
 import type { Dialog } from '@material/mwc-dialog';
 import type { Drawer } from '@material/mwc-drawer';
+import type { IconButton } from '@material/mwc-icon-button';
+import type { Menu } from '@material/mwc-menu';
+import type { Select } from '@material/mwc-select';
+import type { TextField } from '@material/mwc-textfield';
 import { allLocales, targetLocales } from './locales.js';
 import { Edit, EditEvent, OpenEvent } from './foundation.js';
 export declare type LogEntry = {
@@ -49,6 +56,10 @@ export declare class OpenSCD extends LitElement {
     docs: Record<string, XMLDocument>;
     /** The name of the [[`doc`]] currently being edited */
     docName: string;
+    /** The file endings of editable files */
+    editable: string[];
+    isEditable(docName: string): boolean;
+    get editableDocs(): string[];
     get loadedPlugins(): Map<string, Plugin>;
     get plugins(): PluginSet;
     set plugins(plugins: Partial<PluginSet>);
@@ -59,7 +70,12 @@ export declare class OpenSCD extends LitElement {
     /** Redo the last `n` [[Edit]]s that have been undone */
     redo(n?: number): void;
     logUI: Dialog;
+    editFileUI: Dialog;
     menuUI: Drawer;
+    fileNameUI: TextField;
+    fileExtensionUI: Select;
+    fileMenuUI: Menu;
+    fileMenuButtonUI: IconButton;
     get locale(): LocaleTag;
     set locale(tag: LocaleTag);
     private editorIndex;
@@ -73,6 +89,7 @@ export declare class OpenSCD extends LitElement {
     private renderLogEntry;
     private renderHistory;
     render(): TemplateResult<1>;
+    firstUpdated(): void;
     static styles: import("lit").CSSResult;
 }
 declare global {

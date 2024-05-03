@@ -80,6 +80,11 @@ const templates = {
     's90c6a2fed2796c07': `Bearbeitungshistorie`,
     'sbcdf43ebad9c5a3a': `Etwas unerwartetes ist passiert!`,
     'sfb0e98cb12fe463c': `Hier wird Ihre Bearbeitungshistorie angezeigt.`,
+    's690714fde574c188': `Filename`,
+    's1b528387ae29637a': `Extension`,
+    's737e3dbdf9c08cdf': `Close file`,
+    's2ceb11be2290bb1b': `Cancel`,
+    's60320a18282b2b33': `Rename`,
 };
 
 export { templates };
