@@ -19,6 +19,7 @@ import type { ActionDetail, SingleSelectedEvent } from '@material/mwc-list';
 import type { Dialog } from '@material/mwc-dialog';
 import type { Drawer } from '@material/mwc-drawer';
 import type { IconButton } from '@material/mwc-icon-button';
+import type { ListItemBase } from '@material/mwc-list/mwc-list-item-base.js';
 import type { Menu } from '@material/mwc-menu';
 import type { Select } from '@material/mwc-select';
 import type { TextField } from '@material/mwc-textfield';
@@ -446,7 +447,11 @@ export class OpenSCD extends LitElement {
               id="fileMenu"
               corner="BOTTOM_END"
               @selected=${({ detail: { index } }: SingleSelectedEvent) => {
+                const item = this.fileMenuUI.selected as ListItemBase | null;
+                if (!item) return;
                 this.docName = this.editableDocs[index];
+                item.selected = false;
+                this.fileMenuUI.layout();
               }}
             >
               ${this.editableDocs.map(
@@ -490,14 +495,7 @@ export class OpenSCD extends LitElement {
         heading="${this.docName}"
         @closed=${({ detail }: { detail: { action: string } | null }) => {
           if (!detail) return;
-          const { action } = detail;
-          if (action === 'rename') {
-            const newDocName = `${this.fileNameUI.value}.${this.fileExtensionUI.value}`;
-            if (this.docs[newDocName]) return;
-            this.docs[newDocName] = this.doc;
-            delete this.docs[this.docName];
-            this.docName = newDocName;
-          } else if (action === 'remove') {
+          if (detail.action === 'remove') {
             delete this.docs[this.docName];
             this.docName = this.editableDocs[0] || '';
           }
@@ -508,11 +506,20 @@ export class OpenSCD extends LitElement {
           label="${msg('Filename')}"
           value="${this.docName.replace(/\.[^.]+$/, '')}"
           dialogInitialFocus
+          .validityTransform=${(value: string) => {
+            const name = `${value}.${this.fileExtensionUI.value}`;
+            if (name in this.docs && name !== this.docName)
+              return {
+                valid: false,
+              };
+            return {};
+          }}
         ></mwc-textfield>
         <mwc-select
           label="${msg('Extension')}"
           fixedMenuPosition
           id="fileExtension"
+          @selected=${() => this.fileNameUI.reportValidity()}
         >
           ${this.editable.map(
             ext =>
@@ -537,7 +544,19 @@ export class OpenSCD extends LitElement {
         <mwc-button
           slot="primaryAction"
           icon="edit"
-          dialogAction="rename"
+          @click=${() => {
+            const valid = this.fileNameUI.checkValidity();
+            if (!valid) {
+              this.fileNameUI.reportValidity();
+              return;
+            }
+            const newDocName = `${this.fileNameUI.value}.${this.fileExtensionUI.value}`;
+            if (this.docs[newDocName]) return;
+            this.docs[newDocName] = this.doc;
+            delete this.docs[this.docName];
+            this.docName = newDocName;
+            this.editFileUI.close();
+          }}
           trailingIcon
         >
           ${msg('Rename')}
